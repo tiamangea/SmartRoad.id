@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRSP - Smart Road Safety Prediction System</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            blue: '#0B2447', 
+                            light: '#19376D',
+                            accent: '#576CBC',
+                            highlight: '#A5D7E8',
+                            red: '#E02424',
+                            yellow: '#FACA15',
+                            green: '#31C48D'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Map containers */
+        .map-container { height: 100%; min-height: 350px; z-index: 10; border-radius: 0.5rem; }
+        #map-full { min-height: 600px; }
+        
+        /* Animation for view transitions */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Banner Background Custom */
+        .welcome-bg {
+            background: linear-gradient(120deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%);
+        }
+    </style>
+</head>
+<body class="bg-[#F4F7FB] text-gray-800 h-screen overflow-hidden flex flex-col font-sans antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- GLOBAL TOP BANNER (Header Institusi) -->
+    <header class="bg-[#09152b] text-white flex items-center justify-between px-4 lg:px-6 py-2.5 border-b-[3px] border-yellow-500 shadow-lg relative z-50 flex-shrink-0">
+        <!-- Left: Logo & Text -->
+        <div class="flex items-center gap-3 w-1/3">
+            <img src="logo.png" alt="Polri" class="h-10 md:h-12 w-auto drop-shadow-md">
+            <div class="flex flex-col justify-center hidden sm:flex">
+                <span class="text-white font-bold text-xs md:text-sm leading-tight tracking-widest">KEPOLISIAN NEGARA</span>
+                <span class="text-white font-bold text-xs md:text-sm leading-tight tracking-widest">REPUBLIK INDONESIA</span>
+                <span class="text-gray-400 text-[8px] md:text-[9px] mt-0.5 tracking-widest uppercase">Melindungi • Mengayomi • Melayani</span>
+            </div>
+        </div>
+        
+        <!-- Center: Main Title -->
+        <div class="flex flex-col items-center justify-center text-center w-1/3">
+            <h1 class="text-white font-black text-sm md:text-lg lg:text-2xl tracking-wider drop-shadow-sm whitespace-nowrap">SMART ROAD SAFETY PREDICTION SYSTEM (SRSP)</h1>
+            <p class="text-gray-300 text-[9px] md:text-xs mt-0.5 font-medium tracking-wide">Data Cerdas untuk Jalan yang Lebih Aman</p>
+        </div>
+
+        <!-- Right: Tagline & Flag -->
+        <div class="flex-col items-end justify-center hidden md:flex w-1/3">
+            <span class="text-white text-[9px] md:text-xs font-semibold tracking-widest uppercase">Lalu Lintas Aman</span>
+            <span class="text-white font-black text-sm md:text-base tracking-widest uppercase mb-1">Indonesia Maju</span>
+            <div class="flex w-24 md:w-32 h-1.5 shadow-sm rounded-sm overflow-hidden">
+                <div class="w-1/2 bg-red-600"></div>
+                <div class="w-1/2 bg-white"></div>
+            </div>
+        </div>
+        
+        <!-- Mobile menu button -->
+        <button onclick="toggleSidebar()" class="md:hidden absolute right-4 text-white hover:text-yellow-400 focus:outline-none">
+            <i class="fas fa-bars text-xl"></i>
+        </button>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="bg-[#0B1527] border-r border-white/5 text-gray-400 w-64 flex-shrink-0 hidden md:flex flex-col transition-transform duration-300 ease-in-out z-40 absolute md:relative h-full transform -translate-x-full md:translate-x-0 shadow-xl">
+            <!-- App Logo Area -->
+            <div class="p-6 flex flex-col items-center pt-8">
+                <button onclick="toggleSidebar()" class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                <img src="logo.png" alt="Logo SRSP" class="w-14 h-auto mb-3 drop-shadow-lg brightness-110">
+                <h2 class="text-xl font-bold tracking-wider text-white">SRSP</h2>
+                <p class="text-[10px] text-gray-400 text-center mt-1 leading-tight">Smart Road Safety<br>Prediction System</p>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="flex-1 overflow-y-auto py-2 custom-scrollbar">
+                <ul class="space-y-1 px-3">
+                    <li>
+                        <a href="#" data-target="beranda" class="nav-item active flex items-center gap-3 px-4 py-3 bg-[#1E40AF] rounded-lg text-white font-medium transition-colors shadow-sm">
+                            <i class="fas fa-home w-5 text-center"></i> Beranda
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="peta" class="nav-item flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <i class="fas fa-map-marked-alt w-5 text-center"></i> Peta Risiko
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="prediksi" class="nav-item flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <div class="flex items-center gap-3"><i class="fas fa-chart-line w-5 text-center"></i> Prediksi & Analitik</div>
+                            <i class="fas fa-chevron-right text-[10px] opacity-50"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="rekomendasi" class="nav-item flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <i class="fas fa-clipboard-check w-5 text-center"></i> Rekomendasi Tindakan
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="manajemen" class="nav-item flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <div class="flex items-center gap-3"><i class="fas fa-database w-5 text-center"></i> Manajemen Data</div>
+                            <i class="fas fa-chevron-right text-[10px] opacity-50"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="patroli" class="nav-item flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <div class="flex items-center gap-3"><i class="fas fa-shield-alt w-5 text-center"></i> Patroli & Penegakan</div>
+                            <i class="fas fa-chevron-right text-[10px] opacity-50"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="edukasi" class="nav-item flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <div class="flex items-center gap-3"><i class="fas fa-graduation-cap w-5 text-center"></i> Edukasi Masyarakat</div>
+                            <i class="fas fa-chevron-right text-[10px] opacity-50"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="laporan" class="nav-item flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <div class="flex items-center gap-3"><i class="fas fa-file-alt w-5 text-center"></i> Laporan & Evaluasi</div>
+                            <i class="fas fa-chevron-right text-[10px] opacity-50"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-target="pengaturan" class="nav-item flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg hover:text-white transition-colors">
+                            <i class="fas fa-cog w-5 text-center"></i> Pengaturan
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- User Profile Bottom -->
+            <div class="p-4 bg-[#070D1A] border-t border-white/5">
+                <div class="flex items-center gap-3">
+                    <img src="https://ui-avatars.com/api/?name=Budi+Santoso&background=1E40AF&color=fff&rounded=true" alt="Profile" class="w-10 h-10 rounded-full border border-gray-600">
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold truncate text-white">AKP Budi Santoso</p>
+                        <p class="text-xs text-gray-400 truncate">Satlantas Polres Semarang</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Overlay for mobile sidebar -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+            
+            <!-- Secondary Header (Search & Meta) -->
+            <header class="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 lg:px-6 z-20 flex-shrink-0 shadow-sm">
+                <div class="flex-1 max-w-2xl">
+                    <div class="relative w-full">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" placeholder="Cari lokasi, jalan, atau wilayah..." class="w-full pl-11 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4 lg:gap-6 ml-4">
+                    <div class="hidden lg:flex items-center gap-5 text-sm text-gray-600 font-medium border-r border-gray-200 pr-6">
+                        <div class="flex items-center gap-2"><i class="far fa-calendar-alt text-blue-600 text-lg"></i><span id="current-date">Senin, 10 Feb 2026</span></div>
+                        <div class="flex items-center gap-2"><i class="far fa-clock text-blue-600 text-lg"></i><span id="current-time">10:24 WIB</span></div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="relative p-2 text-gray-500 hover:text-blue-600 transition-colors">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span class="absolute top-1 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                        </button>
+                        <button class="p-2 text-gray-500 hover:text-blue-600 transition-colors hidden sm:block">
+                            <i class="fas fa-moon text-xl"></i>
+                        </button>
+                        <div class="flex items-center gap-2 cursor-pointer border-l border-gray-200 pl-4">
+                            <img src="https://ui-avatars.com/api/?name=Satlantas&background=E2E8F0&color=1e293b&rounded=true" alt="Satlantas" class="w-8 h-8 rounded-full border border-gray-300">
+                            <span class="text-sm font-bold text-gray-700 hidden sm:block">Satlantas</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400 hidden sm:block"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Scrollable Views Container -->
+            <div class="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar">
+                
+                <!-- VIEW: BERANDA (Dashboard) -->
+                <div id="view-beranda" class="view-section fade-in max-w-[1600px] mx-auto space-y-4">
+                    
+                    <!-- Welcome Banner -->
+                    <div class="bg-blue-600 rounded-2xl p-6 lg:p-8 text-white relative overflow-hidden shadow-md flex items-center justify-between" style="background: linear-gradient(100deg, #1e3a8a 0%, #2563eb 50%, #60a5fa 100%);">
+                        <!-- Background glow effect -->
+                        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                        
+                        <div class="relative z-10 max-w-2xl">
+                            <p class="text-blue-200 text-sm font-semibold mb-1 tracking-wide">Selamat Datang,</p>
+                            <h2 class="text-2xl lg:text-3xl font-black mb-2 drop-shadow-md">Saatnya Mewujudkan Jalan yang Lebih Aman</h2>
+                            <p class="text-blue-100 text-sm lg:text-base">Pantau risiko, ambil keputusan, dan lakukan tindakan preventif berbasis data.</p>
+                        </div>
+
+                        <!-- Right side decorative elements -->
+                        <div class="hidden md:flex flex-col items-end relative z-10 mr-20">
+                            <p class="italic text-white text-lg font-serif font-bold text-right drop-shadow-md border-r-4 border-yellow-400 pr-4">"Keselamatan di Jalan<br>adalah Tanggung Jawab Kita Bersama"</p>
+                        </div>
+
+                        <!-- Abstract Officer Illustration -->
+                        <div class="absolute right-0 bottom-0 top-0 w-64 hidden lg:block opacity-90 pointer-events-none">
+                             <img src="https://placehold.co/300x400/transparent/ffffff?text=Ilustrasi+Polisi" class="absolute bottom-[-20px] right-4 h-[120%] object-contain drop-shadow-2xl">
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards Row -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                        <!-- Card 1 -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-black text-gray-800 leading-none">150.906</h3>
+                                    <p class="text-[11px] text-gray-500 font-medium mt-1">Total Kecelakaan (2024)</p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 group-hover:text-gray-500"></i>
+                        </div>
+                        
+                        <!-- Card 2 -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                                    <i class="fas fa-user text-2xl text-gray-800"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-black text-gray-800 leading-none">26.839</h3>
+                                    <p class="text-[11px] text-gray-500 font-medium mt-1">Korban Meninggal</p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 group-hover:text-gray-500"></i>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                                    <i class="fas fa-band-aid text-2xl text-orange-500"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-black text-gray-800 leading-none">16.601</h3>
+                                    <p class="text-[11px] text-gray-500 font-medium mt-1">Luka Berat</p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 group-hover:text-gray-500"></i>
+                        </div>
+
+                        <!-- Card 4 -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-yellow-50 flex items-center justify-center">
+                                    <i class="fas fa-users text-2xl text-yellow-500"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-black text-gray-800 leading-none">183.995</h3>
+                                    <p class="text-[11px] text-gray-500 font-medium mt-1">Luka Ringan</p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 group-hover:text-gray-500"></i>
+                        </div>
+
+                        <!-- Card 5 -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition group cursor-pointer col-span-2 md:col-span-1 xl:col-span-1">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center border border-green-100">
+                                    <i class="fas fa-arrow-down text-2xl text-green-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-black text-gray-800 leading-none">-12%</h3>
+                                    <p class="text-[11px] text-gray-500 font-medium mt-1">Tren Kecelakaan <span class="text-[9px]">(dibanding 2023)</span></p>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 group-hover:text-gray-500"></i>
+                        </div>
+                    </div>
+
+                    <!-- Main Grid Content -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                        
+                        <!-- Map Column -->
+                        <div class="lg:col-span-12 xl:col-span-5 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col min-h-[450px]">
+                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/30 rounded-t-xl">
+                                <h3 class="font-black text-gray-800">Peta Risiko Kecelakaan</h3>
+                                <div class="flex bg-gray-100 p-1 rounded-lg">
+                                    <button class="px-4 py-1 text-xs font-bold bg-blue-600 text-white rounded-md shadow-sm">Semarang</button>
+                                    <button class="px-4 py-1 text-xs font-medium text-gray-600 hover:text-gray-900">Jawa Tengah</button>
+                                    <button class="px-4 py-1 text-xs font-medium text-gray-600 hover:text-gray-900">Nasional</button>
+                                </div>
+                            </div>
+                            <div class="relative flex-1 p-3">
+                                <div id="map-beranda" class="w-full h-full rounded-lg border border-gray-200 z-10 map-container"></div>
+                                
+                                <!-- Map Legend -->
+                                <div class="absolute top-6 right-6 z-[400] bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-100">
+                                    <p class="text-xs font-bold text-gray-700 mb-2">Tingkat Risiko</p>
+                                    <div class="space-y-1.5 text-xs text-gray-600 font-medium">
+                                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-red-600 shadow-inner"></div> Sangat Tinggi</div>
+                                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-orange-500 shadow-inner"></div> Tinggi</div>
+                                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-yellow-400 shadow-inner"></div> Sedang</div>
+                                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-green-500 shadow-inner"></div> Rendah</div>
+                                    </div>
+                                </div>
+
+                                <!-- Expand Button -->
+                                <button onclick="document.querySelector('[data-target=peta]').click()" class="absolute bottom-6 right-6 z-[400] bg-white p-2.5 rounded-lg shadow-md text-gray-600 hover:text-blue-600 hover:bg-gray-50 border border-gray-200 transition">
+                                    <i class="fas fa-expand"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Chart & Prediction Column -->
+                        <div class="lg:col-span-7 xl:col-span-4 flex flex-col gap-4">
+                            <!-- Chart -->
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 flex flex-col">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-black text-gray-800">Tren Kecelakaan</h3>
+                                    <select class="border border-gray-200 rounded-lg px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 outline-none focus:border-blue-500">
+                                        <option>12 Bulan Terakhir</option>
+                                        <option>Tahun Ini</option>
+                                    </select>
+                                </div>
+                                <!-- Chart Legend Match -->
+                                <div class="flex justify-center gap-4 mb-2 text-[10px] font-bold text-gray-600">
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span> Total</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-600"></span> Meninggal</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> Luka Berat</span>
+                                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Luka Ringan</span>
+                                </div>
+                                <div class="relative flex-1 w-full min-h-[200px]"><canvas id="trendChart"></canvas></div>
+                            </div>
+                            
+                            <!-- Prediction Alert -->
+                            <div class="bg-[#F0F7FF] rounded-xl p-5 border border-blue-100 flex items-center gap-4 shadow-sm relative overflow-hidden">
+                                <div class="w-12 h-12 rounded-full bg-red-100 border border-red-200 flex items-center justify-center flex-shrink-0 z-10">
+                                    <i class="fas fa-arrow-up text-red-600 text-xl"></i>
+                                </div>
+                                <div class="flex-1 z-10">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <h4 class="font-bold text-gray-800 text-sm">Prediksi 7 Hari ke Depan</h4>
+                                        <span class="text-[10px] text-gray-400 font-medium">5 jam lalu</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 leading-relaxed pr-2">Potensi peningkatan risiko kecelakaan sebesar <strong class="text-red-600 text-sm">28%</strong> di kawasan Jl. Ahmad Yani pada jam 16.00 - 19.00 WIB.</p>
+                                </div>
+                                <button onclick="document.querySelector('[data-target=prediksi]').click()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2.5 rounded-lg shadow-sm font-bold z-10 transition-colors">Lihat Detail</button>
+                                
+                                <!-- Background Watermark -->
+                                <i class="fas fa-bolt absolute right-[-20px] bottom-[-20px] text-8xl text-blue-100 opacity-50"></i>
+                            </div>
+                        </div>
+
+                        <!-- Notifications Column -->
+                        <div class="lg:col-span-5 xl:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col h-[450px] xl:h-auto">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-3">
+                                <h3 class="font-black text-gray-800">Notifikasi & Peringatan</h3>
+                                <a href="#" class="text-xs text-blue-600 font-bold hover:underline">Lihat Semua</a>
+                            </div>
+                            
+                            <div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+                                <!-- Item 1 -->
+                                <div class="flex gap-3 items-start cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <span class="text-red-600 font-bold text-lg">A</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-sm font-bold text-gray-800">Risiko Tinggi Terdeteksi</h4>
+                                            <span class="text-[10px] text-gray-400">2 jam lalu</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-0.5">Jl. Ahmad Yani, Semarang</p>
+                                        <p class="text-[10px] text-blue-600 mt-1">2 jam lalu</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Item 2 -->
+                                <div class="flex gap-3 items-start cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-sm font-bold text-gray-800">Cuaca Ekstrem</h4>
+                                            <span class="text-[10px] text-gray-400">3 jam lalu</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-0.5">Hujan lebat diperkirakan pukul 15.00 - 20.00 WIB</p>
+                                    </div>
+                                </div>
+
+                                <!-- Item 3 -->
+                                <div class="flex gap-3 items-start cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fas fa-info text-blue-600"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-sm font-bold text-gray-800">Rekomendasi Patroli</h4>
+                                            <span class="text-[10px] text-gray-400">5 jam lalu</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-0.5">Tingkatkan patroli di Tol Krapyak</p>
+                                        <p class="text-[10px] text-blue-600 mt-1">5 jam lalu</p>
+                                    </div>
+                                </div>
+
+                                <!-- Item 4 -->
+                                <div class="flex gap-3 items-start cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
+                                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fas fa-check text-green-600"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-sm font-bold text-gray-800">Laporan Ditindaklanjuti</h4>
+                                            <span class="text-[10px] text-gray-400">5 hari lalu</span>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-0.5">Perbaikan rambu di Jl. Mijen selesai dilakukan</p>
+                                        <p class="text-[10px] text-gray-400 mt-1">1 hari lalu</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: PETA RISIKO -->
+                <div id="view-peta" class="view-section hidden fade-in h-full flex-col max-w-7xl mx-auto space-y-4">
+                    <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                        <h2 class="text-xl font-black text-gray-800"><i class="fas fa-map-marked-alt mr-2 text-blue-600"></i> Peta Risiko Interaktif</h2>
+                        <div class="flex gap-2">
+                            <select class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-blue-500 bg-gray-50">
+                                <option>Semarang</option>
+                                <option>Jawa Tengah</option>
+                            </select>
+                            <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-sm text-gray-700 transition font-bold"><i class="fas fa-filter mr-1"></i> Filter</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 bg-white p-2 rounded-xl shadow-sm border border-gray-200 relative min-h-[500px]">
+                        <div id="map-full" class="w-full h-full rounded-lg border border-gray-200 z-10"></div>
+                        
+                        <!-- Floating Legend overlay -->
+                        <div class="absolute bottom-6 left-6 z-20 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-200 w-64">
+                            <h4 class="font-bold text-sm text-gray-800 mb-3 border-b pb-2">Keterangan Risiko</h4>
+                            <div class="space-y-2 font-medium">
+                                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-red-600 opacity-90 shadow-inner"></span> Sangat Tinggi</span> <span class="font-bold text-red-600">80-100</span></div>
+                                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-orange-500 opacity-90 shadow-inner"></span> Tinggi</span> <span class="font-bold text-orange-500">60-79</span></div>
+                                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-yellow-400 opacity-90 shadow-inner"></span> Sedang</span> <span class="font-bold text-yellow-500">40-59</span></div>
+                                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-500 opacity-90 shadow-inner"></span> Rendah</span> <span class="font-bold text-green-500">0-39</span></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Floating Selected Detail (mockup) -->
+                        <div class="absolute bottom-6 right-6 z-20 bg-white p-5 rounded-xl shadow-xl border-t-4 border-red-600 w-72 hidden md:block fade-in">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-black text-gray-800 text-lg">Jl. Ahmad Yani</h4>
+                                <span class="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Risiko Tinggi</span>
+                            </div>
+                            <p class="text-3xl font-black text-gray-800 mb-2">82<span class="text-sm font-medium text-gray-500">/100 Skor</span></p>
+                            <p class="text-xs text-gray-600 mb-4 font-medium leading-relaxed">Terdeteksi potensi kecelakaan dalam 3 jam kedepan akibat curah hujan dan volume kendaraan.</p>
+                            <button onclick="document.querySelector('[data-target=prediksi]').click()" class="w-full bg-blue-600 text-white text-sm font-bold py-2.5 rounded-lg hover:bg-blue-700 transition shadow-sm">Lihat Detail Analisis</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: PREDIKSI & ANALITIK -->
+                <div id="view-prediksi" class="view-section hidden fade-in max-w-4xl mx-auto space-y-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3">
+                        <button onclick="document.querySelector('[data-target=beranda]').click()" class="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition"><i class="fas fa-arrow-left"></i></button>
+                        <h2 class="text-xl font-black text-gray-800">Detail Prediksi Risiko</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center flex flex-col items-center relative overflow-hidden">
+                            <div class="absolute top-0 left-0 right-0 h-2 bg-red-600"></div>
+                            <div class="w-24 h-24 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mb-4 mt-2">
+                                <i class="fas fa-arrow-up text-5xl text-red-600"></i>
+                            </div>
+                            <h1 class="text-6xl font-black text-gray-800 mb-2 tracking-tighter">28%</h1>
+                            <p class="text-gray-500 font-bold mb-8 uppercase tracking-wide text-sm">Peningkatan Risiko dalam 7 hari ke depan</p>
+                            
+                            <div class="w-full space-y-5 text-left border-t border-gray-100 pt-6">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500"><i class="fas fa-map-marker-alt text-xl"></i></div>
+                                    <div><p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Lokasi</p><p class="text-gray-800 font-bold">Jl. Ahmad Yani, Semarang</p></div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500"><i class="far fa-clock text-xl"></i></div>
+                                    <div><p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Waktu Rawan</p><p class="text-gray-800 font-bold">16.00 - 19.00 WIB</p></div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500"><i class="fas fa-list-ul text-xl"></i></div>
+                                    <div><p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-0.5">Faktor Utama</p><p class="text-gray-800 font-bold text-sm">Volume kendaraan tinggi + Kondisi cuaca (hujan)</p></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                                <h3 class="font-black text-gray-800 mb-5 border-b border-gray-100 pb-3">Kontribusi Faktor Risiko (AI Model)</h3>
+                                <div class="space-y-5">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1.5 font-bold"><span class="text-gray-600">Volume Lalu Lintas</span><span class="text-red-600">45%</span></div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div class="bg-red-600 h-full rounded-full" style="width: 45%"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1.5 font-bold"><span class="text-gray-600">Cuaca (Hujan Lebat)</span><span class="text-orange-500">30%</span></div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div class="bg-orange-500 h-full rounded-full" style="width: 30%"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1.5 font-bold"><span class="text-gray-600">Histori Kecelakaan</span><span class="text-yellow-500">15%</span></div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div class="bg-yellow-400 h-full rounded-full" style="width: 15%"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1.5 font-bold"><span class="text-gray-600">Infrastruktur (Penerangan)</span><span class="text-blue-500">10%</span></div>
+                                        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div class="bg-blue-500 h-full rounded-full" style="width: 10%"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="document.querySelector('[data-target=rekomendasi]').click()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-md hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                                Lihat Rekomendasi Tindakan <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: REKOMENDASI TINDAKAN -->
+                <div id="view-rekomendasi" class="view-section hidden fade-in max-w-3xl mx-auto space-y-4">
+                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <h2 class="text-xl font-black text-gray-800 mb-4 flex items-center gap-2"><i class="fas fa-clipboard-check text-blue-600"></i> Rekomendasi Tindakan Preventif</h2>
+                        <div class="flex gap-2 border-b border-gray-200">
+                            <button class="px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold bg-blue-50/50 rounded-t-lg">Preventif (Operasional)</button>
+                            <button class="px-6 py-3 text-gray-500 hover:text-gray-800 font-medium transition">Infrastruktur</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <!-- Action 1 -->
+                        <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between group hover:border-blue-300 transition relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-600"></div>
+                            <div class="flex items-center gap-4 pl-2">
+                                <div class="w-12 h-12 rounded-full bg-red-50 border border-red-100 text-red-600 flex items-center justify-center text-xl flex-shrink-0"><i class="fas fa-exclamation-triangle"></i></div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-base md:text-lg">Tingkatkan patroli pada jam rawan</h4>
+                                    <p class="text-sm text-gray-500 font-medium">16.00-19.00 WIB di Jl. Ahmad Yani</p>
+                                </div>
+                            </div>
+                            <button class="bg-gray-100 hover:bg-green-500 hover:text-white text-gray-600 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm border border-gray-200 hover:border-transparent flex items-center gap-2">
+                                <i class="fas fa-check"></i> <span class="hidden sm:inline">Tandai Selesai</span>
+                            </button>
+                        </div>
+
+                        <!-- Action 2 -->
+                        <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between group hover:border-blue-300 transition relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-orange-500"></div>
+                            <div class="flex items-center gap-4 pl-2">
+                                <div class="w-12 h-12 rounded-full bg-orange-50 border border-orange-100 text-orange-500 flex items-center justify-center text-xl flex-shrink-0"><i class="fas fa-traffic-light"></i></div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-base md:text-lg">Pasang rambu peringatan tambahan</h4>
+                                    <p class="text-sm text-gray-500 font-medium">Peringatan jalan licin di area tikungan Tugu</p>
+                                </div>
+                            </div>
+                            <button class="bg-gray-100 hover:bg-green-500 hover:text-white text-gray-600 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm border border-gray-200 hover:border-transparent flex items-center gap-2">
+                                <i class="fas fa-check"></i> <span class="hidden sm:inline">Tandai Selesai</span>
+                            </button>
+                        </div>
+
+                        <!-- Action 3 -->
+                        <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between group hover:border-blue-300 transition relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400"></div>
+                            <div class="flex items-center gap-4 pl-2">
+                                <div class="w-12 h-12 rounded-full bg-yellow-50 border border-yellow-100 text-yellow-600 flex items-center justify-center text-xl flex-shrink-0"><i class="fas fa-cog"></i></div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-base md:text-lg">Optimalkan pengaturan lampu lalu lintas</h4>
+                                    <p class="text-sm text-gray-500 font-medium">Sesuaikan durasi hijau untuk urai kepadatan</p>
+                                </div>
+                            </div>
+                            <button class="bg-gray-100 hover:bg-green-500 hover:text-white text-gray-600 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm border border-gray-200 hover:border-transparent flex items-center gap-2">
+                                <i class="fas fa-check"></i> <span class="hidden sm:inline">Tandai Selesai</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: LAPORAN MASYARAKAT -->
+                <div id="view-laporan" class="view-section hidden fade-in max-w-2xl mx-auto space-y-6">
+                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex justify-center gap-2 bg-gray-100 p-1.5 rounded-xl mb-8">
+                            <button class="flex-1 flex justify-center items-center gap-2 bg-white text-blue-600 py-2.5 rounded-lg font-bold shadow-sm"><i class="fas fa-plus-circle"></i> Laporan</button>
+                            <button class="flex-1 flex justify-center items-center gap-2 text-gray-500 py-2.5 rounded-lg font-bold hover:text-gray-800"><i class="fas fa-history"></i> Riwayat</button>
+                        </div>
+
+                        <form class="space-y-5" onsubmit="event.preventDefault(); alert('Laporan berhasil disimulasikan terkirim!');">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Pilih Jenis Laporan</label>
+                                <div class="relative">
+                                    <select class="w-full border border-gray-300 rounded-xl p-3.5 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition appearance-none font-medium">
+                                        <option>Kondisi Jalan (Berlubang/Rusak)</option>
+                                        <option>Kecelakaan Lalu Lintas</option>
+                                        <option>Fasilitas Rusak (Lampu/Rambu)</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Deskripsi</label>
+                                <textarea rows="4" placeholder="Jelaskan kondisi yang dilaporkan secara detail..." class="w-full border border-gray-300 rounded-xl p-3.5 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition resize-none font-medium"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">Tambah Foto Bukti</label>
+                                <div class="border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-xl p-8 flex flex-col items-center justify-center text-blue-500 hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer">
+                                    <i class="fas fa-plus text-3xl mb-2"></i>
+                                    <span class="text-sm font-bold">Unggah Foto</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition text-lg mt-6">
+                                Kirim Laporan
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- VIEW: EDUKASI MASYARAKAT -->
+                <div id="view-edukasi" class="view-section hidden fade-in max-w-5xl mx-auto space-y-6">
+                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4">
+                        <h2 class="text-xl font-black text-gray-800"><i class="fas fa-graduation-cap mr-2 text-blue-600"></i> Edukasi Masyarakat</h2>
+                        <div class="flex gap-2 bg-gray-100 p-1.5 rounded-lg w-full sm:w-auto">
+                            <button class="flex-1 sm:flex-none bg-white shadow-sm px-6 py-2 rounded-md text-sm font-bold text-blue-600">Artikel</button>
+                            <button class="flex-1 sm:flex-none px-6 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800">Video</button>
+                            <button class="flex-1 sm:flex-none px-6 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-800">Infografis</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Item 1 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition cursor-pointer flex h-32">
+                            <div class="w-32 bg-gray-200 flex-shrink-0 relative">
+                                <img src="https://placehold.co/200x200/1e293b/ffffff?text=Hujan" alt="Thumbnail" class="w-full h-full object-cover">
+                            </div>
+                            <div class="p-4 flex flex-col justify-center">
+                                <h3 class="font-bold text-gray-800 mb-1 text-lg leading-tight">Tips Aman Berkendara di Musim Hujan</h3>
+                                <p class="text-xs text-gray-500 font-medium">Persiapan sebelum berkendara...</p>
+                            </div>
+                        </div>
+
+                        <!-- Item 2 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition cursor-pointer flex h-32">
+                            <div class="w-32 bg-gray-200 flex-shrink-0 relative">
+                                <img src="https://placehold.co/200x200/0f172a/facc15?text=Helm" alt="Thumbnail" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black/20 flex items-center justify-center"><i class="fas fa-play-circle text-white text-3xl opacity-80"></i></div>
+                            </div>
+                            <div class="p-4 flex flex-col justify-center">
+                                <h3 class="font-bold text-gray-800 mb-1 text-lg leading-tight">Pentingnya Helm SNI</h3>
+                                <p class="text-xs text-gray-500 font-medium">Video edukasi dampak fatalitas...</p>
+                            </div>
+                        </div>
+
+                        <!-- Item 3 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition cursor-pointer flex h-32">
+                            <div class="w-32 bg-gray-200 flex-shrink-0 relative">
+                                <img src="https://placehold.co/200x200/334155/ffffff?text=Etika" alt="Thumbnail" class="w-full h-full object-cover">
+                            </div>
+                            <div class="p-4 flex flex-col justify-center">
+                                <h3 class="font-bold text-gray-800 mb-1 text-lg leading-tight">Etika Berkendara di Jalan Raya</h3>
+                                <p class="text-xs text-gray-500 font-medium">Memahami hak pengguna jalan lain...</p>
+                            </div>
+                        </div>
+
+                        <!-- Item 4 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition cursor-pointer flex h-32">
+                            <div class="w-32 bg-gray-200 flex-shrink-0 relative">
+                                <img src="https://placehold.co/200x200/1e293b/38bdf8?text=Aturan" alt="Thumbnail" class="w-full h-full object-cover">
+                            </div>
+                            <div class="p-4 flex flex-col justify-center">
+                                <h3 class="font-bold text-gray-800 mb-1 text-lg leading-tight">Sosialisasi Aturan Lalu Lintas Terbaru</h3>
+                                <p class="text-xs text-gray-500 font-medium">Pembaruan rambu dan marka wajib...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom spacing -->
+                <div class="h-8"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // --- Sidebar & SPA Navigation Logic ---
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        let mapFullInstance = null; 
+
+        function toggleSidebar() {
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                const targetId = this.getAttribute('data-target');
+                if (!targetId) return; 
+                
+                e.preventDefault();
+
+                // 1. Update Active State
+                document.querySelectorAll('.nav-item').forEach(nav => {
+                    nav.classList.remove('bg-[#1E40AF]', 'text-white', 'shadow-sm');
+                    nav.classList.add('hover:bg-white/5', 'hover:text-white');
+                });
+                this.classList.remove('hover:bg-white/5', 'hover:text-white');
+                this.classList.add('bg-[#1E40AF]', 'text-white', 'shadow-sm');
+                
+                // 2. Switch View
+                document.querySelectorAll('.view-section').forEach(view => {
+                    view.classList.add('hidden');
+                });
+                
+                const targetView = document.getElementById('view-' + targetId);
+                // Fallback ke beranda jika halaman yang diklik belum ada (misal: pengaturan)
+                if(targetView) {
+                    targetView.classList.remove('hidden');
+                } else {
+                    document.getElementById('view-beranda').classList.remove('hidden');
+                }
+
+                // 3. Fix map rendering bug
+                if (targetId === 'peta' && mapFullInstance) {
+                    setTimeout(() => { mapFullInstance.invalidateSize(); }, 200);
+                }
+
+                if (window.innerWidth < 768) toggleSidebar();
+            });
+        });
+
+        // --- Clock Logic ---
+        function updateDateTime() {
+            const now = new Date();
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' };
+            let timeStr = new Intl.DateTimeFormat('id-ID', timeOptions).format(now).replace('.', ':');
+            document.getElementById('current-time').textContent = `${timeStr} WIB`;
+
+            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            document.getElementById('current-date').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // --- Maps Initialization ---
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            function drawHotspots(mapObj) {
+                const hotspots = [
+                    { lat: -6.980, lng: 110.410, risk: 'high', label: 'Tugu', radius: 1500 },
+                    { lat: -6.970, lng: 110.460, risk: 'very-high', label: 'Semarang Utara', radius: 1800 },
+                    { lat: -6.950, lng: 110.490, risk: 'high', label: 'Genuk', radius: 1200 },
+                    { lat: -7.030, lng: 110.420, risk: 'medium', label: 'Ngaliyan', radius: 1300 },
+                    { lat: -7.050, lng: 110.440, risk: 'very-high', label: 'Banyumanik', radius: 2000 }
+                ];
+
+                const colors = {
+                    'very-high': { color: '#dc2626', fill: '#ef4444' },
+                    'high': { color: '#ea580c', fill: '#f97316' },
+                    'medium': { color: '#ca8a04', fill: '#eab308' },
+                    'low': { color: '#16a34a', fill: '#22c55e' }
+                };
+
+                hotspots.forEach(spot => {
+                    L.circle([spot.lat, spot.lng], {
+                        color: 'transparent', fillColor: colors[spot.risk].fill,
+                        fillOpacity: 0.25, radius: spot.radius * 1.5
+                    }).addTo(mapObj);
+
+                    L.circle([spot.lat, spot.lng], {
+                        color: colors[spot.risk].color, weight: 1,
+                        fillColor: colors[spot.risk].fill, fillOpacity: 0.7,
+                        radius: spot.radius
+                    }).bindPopup(`<b>Area ${spot.label}</b><br>Tingkat Risiko: ${spot.risk.toUpperCase()}`).addTo(mapObj);
+                });
+            }
+
+            const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+            const tileOptions = { attribution: '&copy; OpenStreetMap', subdomains: 'abcd', maxZoom: 19 };
+
+            const mapBeranda = L.map('map-beranda', { zoomControl: false }).setView([-7.0051, 110.4381], 11); 
+            L.tileLayer(tileUrl, tileOptions).addTo(mapBeranda);
+            drawHotspots(mapBeranda);
+            
+            mapFullInstance = L.map('map-full', { zoomControl: false }).setView([-7.0051, 110.4381], 12);
+            L.tileLayer(tileUrl, tileOptions).addTo(mapFullInstance);
+            L.control.zoom({ position: 'topleft' }).addTo(mapFullInstance);
+            drawHotspots(mapFullInstance);
+
+            setTimeout(() => { mapBeranda.invalidateSize(); }, 400);
+
+            // --- Chart.js Configuration to match UI ---
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
+                    datasets: [
+                        { data: [10000, 11000, 12000, 15000, 14500, 13000, 15500, 16000, 15000, 16500, 17000, 16000], borderColor: '#2563eb', backgroundColor: '#2563eb', borderWidth: 2, pointRadius: 3 },
+                        { data: [2000, 2100, 2200, 2500, 2400, 2300, 2600, 2700, 2500, 3000, 3200, 3000], borderColor: '#dc2626', backgroundColor: '#dc2626', borderWidth: 2, pointRadius: 3 },
+                        { data: [4000, 4200, 4500, 5000, 4800, 4500, 5200, 5500, 5000, 6000, 6500, 6000], borderColor: '#f97316', backgroundColor: '#f97316', borderWidth: 2, pointRadius: 3 },
+                        { data: [8000, 8500, 9000, 12000, 11500, 10000, 12500, 13000, 12000, 13500, 14000, 13000], borderColor: '#facc15', backgroundColor: '#facc15', borderWidth: 2, pointRadius: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }, // Custom HTML legend used instead
+                    scales: {
+                        y: { 
+                            max: 20000, 
+                            ticks: { callback: v => v===0 ? '0' : (v/1000)+'K', font: { size: 10, weight: 'bold' } },
+                            grid: { color: '#f1f5f9' },
+                            border: { display: false }
+                        },
+                        x: { 
+                            ticks: { font: { size: 10, weight: 'bold' } }, 
+                            grid: { display: false },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
